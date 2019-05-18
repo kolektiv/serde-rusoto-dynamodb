@@ -1,11 +1,13 @@
+// Serialization
+
+// Serialize Rust values to the native AWS AttributeValue representation used
+// by DynamoDB (and related products such as Streams) and which is implemented
+// in Rust by the Rusoto family of libraries.
+
 use super::result::{Error, Result};
-use itoa::Integer;
 use maplit::hashmap;
 use rusoto_dynamodb::AttributeValue;
-use ryu::{Buffer, Float};
 use serde::ser::{Serialize, Serializer};
-
-// =============================================================================
 
 // Attribute Value Serializer
 
@@ -15,6 +17,9 @@ use serde::ser::{Serialize, Serializer};
 // where relevant).
 
 struct AttributeValueSerializer;
+
+use itoa::Integer;
+use ryu::{Buffer, Float};
 
 impl AttributeValueSerializer {
     // Numeric
@@ -62,11 +67,11 @@ impl Serializer for AttributeValueSerializer {
     // to Rust value serialization, implemented below.
 
     type SerializeMap = AttributeValueMapSerializer;
-    type SerializeSeq = AttributeValueSeqSerializer;
+    type SerializeSeq = AttributeValueSeqTupleAndTupleStructSerializer;
     type SerializeStruct = AttributeValueStructSerializer;
     type SerializeStructVariant = AttributeValueStructVariantSerializer;
-    type SerializeTuple = AttributeValueTupleSerializer;
-    type SerializeTupleStruct = AttributeValueTupleStructSerializer;
+    type SerializeTuple = AttributeValueSeqTupleAndTupleStructSerializer;
+    type SerializeTupleStruct = AttributeValueSeqTupleAndTupleStructSerializer;
     type SerializeTupleVariant = AttributeValueTupleVariantSerializer;
 
     // Boolean
@@ -308,7 +313,10 @@ impl Serializer for AttributeValueSerializer {
 
     // For the unit variant, serialize using the map form as described in the
     // serialization of the newtype variant, where the value will be the native
-    // AWS AttributeValue representation of null.
+    // AWS AttributeValue representation of null. This differs from common
+    // serialization approaches where the unit variant is stored as a string
+    // containing the variant name, but this approach is more consistent with
+    // the other variant forms.
 
     fn serialize_unit(self) -> Result<Self::Ok> {
         Ok(AttributeValue {
@@ -348,6 +356,10 @@ use std::collections::HashMap;
 // -----------------------------------------------------------------------------
 
 // Attribute Value Map Serializer
+
+// Serialize Rust map values as the native AWS AttributeValue map type. Keys
+// must be strings, so we serialize the key values and reject non-string results
+// and use valid keys when inserting the next value in to the HashMap.
 
 use serde::ser::SerializeMap;
 
@@ -400,20 +412,22 @@ impl SerializeMap for AttributeValueMapSerializer {
 
 // -----------------------------------------------------------------------------
 
-// Attribute Value Seq Serializer
+// Attribute Value Seq, Tuple and Tuple Struct Serializer
 
-use serde::ser::SerializeSeq;
+// Serialize Rust seq values as the native AWS AttributeValue list type where
+// each element is serialized as an AttributeValue (making a homogenous list
+// even though we also use this approach here for tuples which would otherwise
+// imply heteregenous lists).
+
+use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct};
 
 #[derive(Default)]
-pub struct AttributeValueSeqSerializer {
+pub struct AttributeValueSeqTupleAndTupleStructSerializer {
     values: Vec<AttributeValue>,
 }
 
-impl SerializeSeq for AttributeValueSeqSerializer {
-    type Ok = AttributeValue;
-    type Error = Error;
-
-    fn serialize_element<T: ?Sized>(&mut self, elem: &T) -> Result<()>
+impl AttributeValueSeqTupleAndTupleStructSerializer {
+    fn serialize<T: ?Sized>(&mut self, elem: &T) -> Result<()>
     where
         T: Serialize,
     {
@@ -421,17 +435,69 @@ impl SerializeSeq for AttributeValueSeqSerializer {
         Ok(())
     }
 
-    fn end(self) -> Result<Self::Ok> {
-        Ok(Self::Ok {
+    fn end(self) -> Result<AttributeValue> {
+        Ok(AttributeValue {
             l: Some(self.values),
             ..AttributeValue::default()
         })
     }
 }
 
+impl SerializeSeq for AttributeValueSeqTupleAndTupleStructSerializer {
+    type Ok = AttributeValue;
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized>(&mut self, elem: &T) -> Result<()>
+    where
+        T: Serialize,
+    {
+        self.serialize(elem)
+    }
+
+    fn end(self) -> Result<Self::Ok> {
+        self.end()
+    }
+}
+
+impl SerializeTuple for AttributeValueSeqTupleAndTupleStructSerializer {
+    type Ok = AttributeValue;
+    type Error = Error;
+
+    fn serialize_element<T: ?Sized>(&mut self, elem: &T) -> Result<()>
+    where
+        T: Serialize,
+    {
+        self.serialize(elem)
+    }
+
+    fn end(self) -> Result<AttributeValue> {
+        self.end()
+    }
+}
+
+impl SerializeTupleStruct for AttributeValueSeqTupleAndTupleStructSerializer {
+    type Ok = AttributeValue;
+    type Error = Error;
+
+    fn serialize_field<V: ?Sized>(&mut self, value: &V) -> Result<()>
+    where
+        V: Serialize,
+    {
+        self.serialize(value)
+    }
+
+    fn end(self) -> Result<AttributeValue> {
+        self.end()
+    }
+}
+
 // -----------------------------------------------------------------------------
 
 // Attribute Value Struct Serializer
+
+// Serialize Rust struct values as the native AWS ATtributeValue map type, as
+// struct keys are already compatible with the requirement for a string-keyed
+// HashMap as the underlying store.
 
 use serde::ser::SerializeStruct;
 
@@ -464,6 +530,10 @@ impl SerializeStruct for AttributeValueStructSerializer {
 // -----------------------------------------------------------------------------
 
 // Attribute Value Struct Variant Serializer
+
+// Serialize Rust struct variant values using a singly-keyed map containing the
+// actual serialized variant data, where the key is the variant name. This maps
+// to the same convention used by the previously defined newtype variant.
 
 use serde::ser::SerializeStructVariant;
 
@@ -509,69 +579,11 @@ impl SerializeStructVariant for AttributeValueStructVariantSerializer {
 
 // -----------------------------------------------------------------------------
 
-// Attrinbute Value Tuple Serializer
-
-use serde::ser::SerializeTuple;
-
-#[derive(Default)]
-pub struct AttributeValueTupleSerializer {
-    values: Vec<AttributeValue>,
-}
-
-impl SerializeTuple for AttributeValueTupleSerializer {
-    type Ok = AttributeValue;
-    type Error = Error;
-
-    fn serialize_element<T: ?Sized>(&mut self, elem: &T) -> Result<()>
-    where
-        T: Serialize,
-    {
-        self.values.push(elem.serialize(AttributeValueSerializer)?);
-        Ok(())
-    }
-
-    fn end(self) -> Result<AttributeValue> {
-        Ok(AttributeValue {
-            l: Some(self.values),
-            ..AttributeValue::default()
-        })
-    }
-}
-
-// -----------------------------------------------------------------------------
-
-// Attribute Value Tuple Struct Serializer
-
-use serde::ser::SerializeTupleStruct;
-
-#[derive(Default)]
-pub struct AttributeValueTupleStructSerializer {
-    values: Vec<AttributeValue>,
-}
-
-impl SerializeTupleStruct for AttributeValueTupleStructSerializer {
-    type Ok = AttributeValue;
-    type Error = Error;
-
-    fn serialize_field<V: ?Sized>(&mut self, value: &V) -> Result<()>
-    where
-        V: Serialize,
-    {
-        self.values.push(value.serialize(AttributeValueSerializer)?);
-        Ok(())
-    }
-
-    fn end(self) -> Result<AttributeValue> {
-        Ok(AttributeValue {
-            l: Some(self.values),
-            ..AttributeValue::default()
-        })
-    }
-}
-
-// -----------------------------------------------------------------------------
-
 // Attribute Value Tuple Variant Serializer
+
+// Serialize Rust tuple variant values using a singly-keyed map containing the
+// actual serialized variant data, where the key is the variant name. This maps
+// to the same convention used by the previously defined newtype variant.
 
 use serde::ser::SerializeTupleVariant;
 
