@@ -5,9 +5,10 @@ authors = ["kolektiv <andrew@xyncro.com>"]
 edition = "2018"
 
 [dependencies]
+bytes = "0.4.12"
 derive-new = "0.5.6"
-itoa = "0.4.3"
+itoa = "0.4.4"
 maplit = "1.0.1"
-rusoto_dynamodb = "0.37.0"
-ryu = "0.2.7"
-serde = { version = "1.0.89", features = ["derive"] }
+rusoto_dynamodb = "0.39.0"
+ryu = "0.2.8"
+serde = { version = "1.0.91", features = ["derive"] }

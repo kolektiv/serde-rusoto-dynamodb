@@ -5,6 +5,7 @@
 // in Rust by the Rusoto family of libraries.
 
 use super::result::{Error, Result};
+use bytes::Bytes;
 use maplit::hashmap;
 use rusoto_dynamodb::AttributeValue;
 use serde::ser::{Serialize, Serializer};
@@ -164,7 +165,7 @@ impl Serializer for AttributeValueSerializer {
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
         Ok(AttributeValue {
-            b: Some(value.to_vec()),
+            b: Some(Bytes::from(value)),
             ..AttributeValue::default()
         })
     }
