@@ -4,14 +4,9 @@ use serde::de::{Deserialize, Deserializer, Visitor};
 
 // Attribute Value Deserializer
 
+#[derive(new)]
 pub struct AttributeValueDeserializer<'de> {
     value: &'de AttributeValue,
-}
-
-impl<'de> AttributeValueDeserializer<'de> {
-    pub fn new(value: &'de AttributeValue) -> Self {
-        Self { value }
-    }
 }
 
 impl<'de, 'a> Deserializer<'de> for &'a mut AttributeValueDeserializer<'de> {
@@ -145,15 +140,10 @@ use serde::{de::DeserializeSeed, forward_to_deserialize_any};
 
 use serde::de::EnumAccess;
 
+#[derive(new)]
 pub struct AttributeValueEnumDeserializer<'de> {
     key: &'de str,
     value: &'de AttributeValue,
-}
-
-impl<'de> AttributeValueEnumDeserializer<'de> {
-    pub fn new(key: &'de str, value: &'de AttributeValue) -> Self {
-        Self { key, value }
-    }
 }
 
 impl<'de> EnumAccess<'de> for AttributeValueEnumDeserializer<'de> {
@@ -171,14 +161,9 @@ impl<'de> EnumAccess<'de> for AttributeValueEnumDeserializer<'de> {
     }
 }
 
+#[derive(new)]
 struct AttributeValueEnumKeyDeserializer<'de> {
     key: &'de str,
-}
-
-impl<'de> AttributeValueEnumKeyDeserializer<'de> {
-    fn new(key: &'de str) -> Self {
-        Self { key }
-    }
 }
 
 impl<'de> Deserializer<'de> for AttributeValueEnumKeyDeserializer<'de> {
@@ -248,14 +233,9 @@ impl<'de> MapAccess<'de> for AttributeValueMapDeserializer<'de> {
     }
 }
 
+#[derive(new)]
 struct AttributeValueMapKeyDeserializer<'de> {
     key: &'de str,
-}
-
-impl<'de> AttributeValueMapKeyDeserializer<'de> {
-    fn new(key: &'de str) -> Self {
-        Self { key }
-    }
 }
 
 impl<'de> Deserializer<'de> for AttributeValueMapKeyDeserializer<'de> {
@@ -316,14 +296,9 @@ impl<'de> SeqAccess<'de> for AttributeValueSeqDeserializer<'de> {
 
 use serde::de::VariantAccess;
 
+#[derive(new)]
 pub struct AttributeValueVariantDeserializer<'de> {
     value: &'de AttributeValue,
-}
-
-impl<'de> AttributeValueVariantDeserializer<'de> {
-    pub fn new(value: &'de AttributeValue) -> Self {
-        Self { value }
-    }
 }
 
 impl<'de> VariantAccess<'de> for AttributeValueVariantDeserializer<'de> {
@@ -378,5 +353,5 @@ pub fn from_attribute_value<'a, T>(value: &'a AttributeValue) -> Result<T>
 where
     T: Deserialize<'a>,
 {
-    T::deserialize(&mut AttributeValueDeserializer { value })
+    T::deserialize(&mut AttributeValueDeserializer::new(value))
 }

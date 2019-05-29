@@ -2,6 +2,9 @@ pub mod de;
 pub mod result;
 pub mod ser;
 
+#[macro_use]
+extern crate derive_new;
+
 // -----------------------------------------------------------------------------
 
 // Attribute Value Serialization/Deserialization Functions

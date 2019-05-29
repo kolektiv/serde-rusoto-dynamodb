@@ -16,6 +16,7 @@ use serde::ser::{Serialize, Serializer};
 // JSON representations of Rust types (though with some exceptions, documented
 // where relevant).
 
+#[derive(new)]
 struct AttributeValueSerializer;
 
 use itoa::Integer;
@@ -537,18 +538,11 @@ impl SerializeStruct for AttributeValueStructSerializer {
 
 use serde::ser::SerializeStructVariant;
 
+#[derive(new)]
 pub struct AttributeValueStructVariantSerializer {
+    #[new(default)]
     values: HashMap<String, AttributeValue>,
     variant: String,
-}
-
-impl AttributeValueStructVariantSerializer {
-    pub fn new(variant: String) -> Self {
-        Self {
-            values: HashMap::new(),
-            variant,
-        }
-    }
 }
 
 impl SerializeStructVariant for AttributeValueStructVariantSerializer {
@@ -587,18 +581,11 @@ impl SerializeStructVariant for AttributeValueStructVariantSerializer {
 
 use serde::ser::SerializeTupleVariant;
 
+#[derive(new)]
 pub struct AttributeValueTupleVariantSerializer {
+    #[new(default)]
     values: Vec<AttributeValue>,
     variant: String,
-}
-
-impl AttributeValueTupleVariantSerializer {
-    pub fn new(variant: String) -> Self {
-        Self {
-            values: Vec::default(),
-            variant,
-        }
-    }
 }
 
 impl SerializeTupleVariant for AttributeValueTupleVariantSerializer {
@@ -634,5 +621,5 @@ pub fn to_attribute_value<T>(value: T) -> Result<AttributeValue>
 where
     T: Serialize,
 {
-    value.serialize(AttributeValueSerializer)
+    value.serialize(AttributeValueSerializer::new())
 }

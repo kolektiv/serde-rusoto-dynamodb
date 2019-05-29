@@ -5,6 +5,7 @@ authors = ["kolektiv <andrew@xyncro.com>"]
 edition = "2018"
 
 [dependencies]
+derive-new = "0.5.6"
 itoa = "0.4.3"
 maplit = "1.0.1"
 rusoto_dynamodb = "0.37.0"
